@@ -8,7 +8,6 @@ import RPi.GPIO as GPIO
 import serial
 import numpy as np
 
-
 #start cameras
 cam1 = cv2.VideoCapture(0)
 cam2 = cv2.VideoCapture(1)
@@ -47,7 +46,7 @@ def colorRec(index, redLower0, redUpper0, redLower1, redUpper1, greenLower, gree
         v, img = cam2.read()
     
     #convert to hsv
-    img_hsv = cv2.cvtColor(img, cv2.COLOR_BRG2HSV)
+    img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     
     #set pixel colors into red, green, yellow, and white
     red_mask1 = cv2.inRange(img_hsv, redLower0, redUpper0)
@@ -85,27 +84,24 @@ def colorRec(index, redLower0, redUpper0, redLower1, redUpper1, greenLower, gree
                 centerX = int(M['m10']/M['m00'])
                 centerY = int(M['m01']/M['m00'])
                 
-                img = img[centerY-25:centerY+25, centerX-25:centerX+25]
+                img = img[centerY-15:centerY+15, centerX-15:centerX+15]
                 
                 #colors
                 green = np.array([0, 255, 0])
                 yellow = np.array([0, 255, 255])
                 red = np.array([0, 0, 255])
                 
-                #count number of colored pixels and return result
-                if np.count_nonzero(green) > 2000:
-                    print('cam'+str(index)+' green')
-                if np.count_nonzero(yellow) > 2000:
-                    print('cam'+str(index)+' yellow')
-                if np.count_nonzero(red) > 2000:
-                    print('cam'+str(index)+' red')
-                
-                print(cam1_green)
-                print(cam1_yellow)
-                print(cam1_red)
-                
                 cv2.imshow('img', img)
-
+                
+                #count number of colored pixels and return result
+                if np.count_nonzero((img == green).all(axis=2)) > 400:
+                    print("green")
+                
+                if np.count_nonzero((img == yellow).all(axis=2)) > 400:
+                    print("yellow")
+            
+                if np.count_nonzero((img == red).all(axis=2)) > 400:
+                    print("red")
 
 #letters
 def letterRec(index):
