@@ -13,7 +13,7 @@ import numpy as np
 # CAMERA 1
 #start cameras
 cam1 = cv2.VideoCapture(0)
-p
+
 #color HSV bounds
 cam1_RED_LOWER_0 = np.array([0, 140, 75])
 cam1_RED_UPPER_0 = np.array([10, 255, 255])
