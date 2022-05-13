@@ -9,10 +9,9 @@ import serial
 import numpy as np
 
 
-
-# CAMERA 1
 #start cameras
 cam1 = cv2.VideoCapture(0)
+cam2 = cv2.VideoCapture(1)
 
 #color HSV bounds
 cam1_RED_LOWER_0 = np.array([0, 140, 75])
@@ -27,101 +26,6 @@ cam1_YELLOW_LOWER = np.array([10, 125, 125])
 cam1_YELLOW_UPPER = np.array([35, 255, 255])
 
 
-#read image from camera
-v, img = cam1.read()
-img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
-#turn colored pixels into their respective colors, everything else white
-cam1_red_mask1 = cv2.inRange(img_hsv, cam1_RED_LOWER_0, cam1_RED_UPPER_0)
-cam1_red_mask2 = cv2.inRange(img_hsv, cam1_RED_LOWER_1, cam1_RED_UPPER_1)
-cam1_red_mask = cv2.bitwise_or(cam1_red_mask1, cam1_red_mask2)
-img[cam1_red_mask > 0] = [0, 0, 255]
-
-cam1_yellow_mask = cv2.inRange(img_hsv, cam1_YELLOW_LOWER, cam1_YELLOW_UPPER)
-img[cam1_yellow_mask > 0] = [0, 255, 255]
-
-cam1_green_mask = cv2.inRange(img_hsv, cam1_GREEN_LOWER, cam1_GREEN_UPPER)
-img[cam1_green_mask > 0] = [0, 255, 0]
-
-img[(cam1_red_mask == 0) & (cam1_yellow_mask == 0) & (cam1_green_mask == 0)] = 255
-
-
-#blur image and apply contours
-blur = cv2.blur(img,(7,7))
-
-gray = cv2.cvtColor(blur, cv2.COLOR_BGR2GRAY)
-
-ret, threshold = cv2.threshold(gray,250,255,cv2.THRESH_BINARY_INV)
-
-contours, hierarchy = cv2.findContours(threshold, 
-    cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-
-for c in contours:
-    area = cv2.contourArea(c, False)
-    print(area)
-    if area > 20000:
-        print('1')
-        peri = cv2.arcLength(c, True)
-        approx = cv2.approxPolyDP(c, 0.01*peri, True)
-        if len(approx) == 4:
-            print('2')
-            M = cv2.moments(c)
-            centerX = int(M['m10']/M['m00'])
-            centerY = int(M['m01']/M['m00'])
-            
-            cam1_green = 0
-            cam1_yellow = 0
-            cam1_red = 0
-            
-            for i in range(50):
-                for j in range(50):
-                    x, y = centerX - 25 + i, centerY - 25 + j
-                    b,g,r = img[x, y]
-                    #i think we need to add something here like an array of some sort.  we already have an image array from the mask
-                    
-                    #we should also crop it to only focus on the color and we could easily do this because we already centered the image
-                    #meaning we should have a general idea on where the bounds are
-                    #or maybe it's already cropped and i can't read, idk
-                    
-                    #so we just have to filter it for b==0, b=255, and r==0 or whatever--> depending on color
-                    #we would have 3 checking conditions for np.where and it search for like green = np.asarray((0,255,0))
-                    #i also think that the if statement conditions for the print should stay the same because we are searching 
-                    #for 2500 green (b,g,r) ig 
-                    #im looking at the conditions below
-                    
-                    if b == 0:
-                        if g == 255 and r == 0:
-                            cam1_green += 1
-                        if g == 255 and r == 255:
-                            cam1_yellow += 1
-                        if g == 0 and r == 255:
-                            cam1_red += 1
-                            
-            if cam1_green == 2500:
-                print('cam1 green')
-            if cam1_yellow == 2500:
-                print('cam1 yellow')
-            if cam1_red == 2500:
-                print('cam1 red')                
-                
-            print(cam1_green)
-            print(cam1_yellow)
-            print(cam1_red)
-            
-            cam1_green = 0
-            cam1_yellow = 0
-            cam1_red = 0
-
-
-
-
-
-
-# CAMERA 2
-#start cameras
-cam2 = cv2.VideoCapture(1)
-
-#color HSV bounds
 cam2_RED_LOWER_0 = np.array([0, 70, 25])
 cam2_RED_UPPER_0 = np.array([10, 255, 255])
 cam2_RED_LOWER_1 = np.array([165, 70, 25])
@@ -134,95 +38,98 @@ cam2_YELLOW_LOWER = np.array([10, 70, 25])
 cam2_YELLOW_UPPER = np.array([45, 255, 255])
 
 
-#read image from camera
-v, img2 = cam2.read()
-img_hsv2 = cv2.cvtColor(img2, cv2.COLOR_BGR2HSV)
+#colors
+def colorRec(index, redLower0, redUpper0, redLower1, redUpper1, greenLower, greenUpper, yellowLower, yellowUpper):
+    #read image
+    if index == 1:
+        v, img = cam1.read()
+    if index == 2:
+        v, img = cam2.read()
+    
+    #convert to hsv
+    img_hsv = cv2.cvtColor(img, cv2.COLOR_BRG2HSV)
+    
+    #set pixel colors into red, green, yellow, and white
+    red_mask1 = cv2.inRange(img_hsv, redLower0, redUpper0)
+    red_mask2 = cv2.inRange(img_hsv, redLower1, redUpper1)
+    red_mask = cv2.bitwise_or(red_mask1, red_mask2)
+    img[red_mask > 0] = [0, 0, 255]
 
-#turn colored pixels into their respective colors, everything else white
-cam2_red_mask1 = cv2.inRange(img_hsv2, cam2_RED_LOWER_0, cam2_RED_UPPER_0)
-cam2_red_mask2 = cv2.inRange(img_hsv2, cam2_RED_LOWER_1, cam2_RED_UPPER_1)
-cam2_red_mask = cv2.bitwise_or(cam2_red_mask1, cam2_red_mask2)
-img2[cam2_red_mask > 0] = [0, 0, 255]
+    green_mask = cv2.inRange(img_hsv, greenLower, greenUpper)
+    img[green_mask > 0] = [0, 255, 0]
+    
+    yellow_mask = cv2.inRange(img_hsv, yellowLower, yellowUpper)
+    img[yellow_mask > 0] = [0, 255, 255]
+    
+    img[(red_mask == 0) & (yellow_mask == 0) & (green_mask == 0)] = 255
+    
+    #apply contours
+    blur = cv2.blur(img,(7,7))
 
-cam2_yellow_mask = cv2.inRange(img_hsv2, cam2_YELLOW_LOWER, cam2_YELLOW_UPPER)
-img2[cam2_yellow_mask > 0] = [0, 255, 255]
+    gray = cv2.cvtColor(blur, cv2.COLOR_BGR2GRAY)
 
-cam2_green_mask = cv2.inRange(img_hsv2, cam2_GREEN_LOWER, cam2_GREEN_UPPER)
-img2[cam2_green_mask > 0] = [0, 255, 0]
+    ret, thresh = cv2.threshold(gray,250,255,cv2.THRESH_BINARY_INV)
 
-img2[(cam2_red_mask == 0) & (cam2_yellow_mask == 0) & (cam2_green_mask == 0)] = 255
-
-
-#blur image and apply contours
-blur2 = cv2.blur(img2,(3,3))
-
-gray2 = cv2.cvtColor(blur2, cv2.COLOR_BGR2GRAY)
-
-ret, threshold2 = cv2.threshold(gray2,250,255,cv2.THRESH_BINARY_INV)
-
-contours2, hierarchy = cv2.findContours(threshold2, 
-    cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-
-cam2_green = 0
-cam2_yellow = 0
-cam2_red = 0
-
-for c in contours2:
-    peri = cv2.arcLength(c, True)
-    approx = cv2.approxPolyDP(c, 0.1*peri, True)
-    if len(approx) == 4:
+    contours, hierarchy = cv2.findContours(thresh, 
+        cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    
+    #contours must meet area requirements and have 4 sides
+    for c in contours:
         area = cv2.contourArea(c, False)
         if area > 20000:
-            M = cv2.moments(c)
-            centerX = int(M['m10']/M['m00'])
-            centerY = int(M['m01']/M['m00'])
-            for i in range(50):
-                for j in range(50):
-                    x, y = centerX - 25 + i, centerY - 25 + j
-                    b,g,r = img2[x, y]
-            
-                    if b == 0:
-                        if g == 255 and r == 0:
-                            cam2_green += 1
-                        if g == 255 and r == 255:
-                            cam2_yellow += 1
-                        if g == 0 and r == 255:
-                            cam2_red += 1
-                            
-            if cam2_green >= 2000:
-                print('cam2 green '+str(cam2_green))
-            if cam2_yellow >= 2000:
-                print('cam2 yellow '+str(cam2_yellow))
-            if cam2_red >= 2000:
-                print('cam2 red '+str(cam2_red))
-                            
-            cam2_green = 0
-            cam2_yellow = 0
-            cam2_red = 0
-
-cv2.imshow('img1', img)
-#cv2.imshow('img2', img2)
-#cv2.waitKey()
+            peri = cv2.arcLength(c, True)
+            approx = cv2.approxPolyDP(c, 0.01*peri, True)
+            if len(approx) == 4:
+                #crop image around center of contour
+                M = cv2.moments(c)
+                centerX = int(M['m10']/M['m00'])
+                centerY = int(M['m01']/M['m00'])
+                
+                img = img[centerY-25:centerY+25, centerX-25:centerX+25]
+                
+                #colors
+                green = np.array([0, 255, 0])
+                yellow = np.array([0, 255, 255])
+                red = np.array([0, 0, 255])
+                
+                #count number of colored pixels and return result
+                if np.count_nonzero(green) > 2000:
+                    print('cam'+str(index)+' green')
+                if np.count_nonzero(yellow) > 2000:
+                    print('cam'+str(index)+' yellow')
+                if np.count_nonzero(red) > 2000:
+                    print('cam'+str(index)+' red')
+                
+                print(cam1_green)
+                print(cam1_yellow)
+                print(cam1_red)
+                
+                cv2.imshow('img', img)
 
 
-
-
-v, img1Let = cam1.read()
-v, img2Let = cam2.read()
-
-BLACK_LOWER = 0
-BLACK_UPPER = 50
-
-# CAMERA 1
-img1_gray = cv2.cvtColor(img1Let, cv2.COLOR_BGR2GRAY)
-ret,thresh1 = cv2.threshold(img1_gray,50,255,cv2.THRESH_BINARY_INV)
-
-contours_1, hierarchy = cv2.findContours(thresh1, 
-    cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-
-if len(contours_1) > 0:
-    for cnt in contours_1:
-        rect = cv2.minAreaRect(cnt)
+#letters
+def letterRec(index):
+    #read image
+    if index == 1:
+        v, img = cam1.read()
+    if index == 2:
+        v, img = cam2.read()
+    
+    #color bounds
+    BLACK_LOWER = 0
+    BLACK_UPPER = 50
+    
+    #convert to grayscale and threshold darkest pixels
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    ret, thresh = cv2.threshold(gray,50,255,cv2.THRESH_BINARY_INV)
+    
+    #find contours
+    contours, hierarchy = cv2.findContours(thresh, 
+        cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    
+    #contours must be fully in the image, meet area requirements, and have a certain height:width ratio
+    for c in contours:
+        rect = cv2.minAreaRect(c)
         x, y = rect[0]
         w, h = rect[1]
         angle = rect[2]
@@ -230,44 +137,46 @@ if len(contours_1) > 0:
         if x-(w/2)>0 and x+(w/2)<640 and y-(h/2)>0 and y+(h/2)<480:
             if area > 20000:
                 if 1 <= h/w <= 1.6 or 1 <= w/h <= 1.6:
-                    rows, cols = thresh1.shape
+                    rows, cols = thresh.shape
+                    #rotate image so letter is upright
                     if w<h:
                         rot = cv2.getRotationMatrix2D((x, y), angle, 1)
-                        thresh1 = cv2.warpAffine(thresh1, rot, (rows, cols))
-                        thresh1 = thresh1[int(y-h/2)-5: int(y+h/2)+5, int(x-w/2)-5: int(x+w/2)+5]
+                        thresh = cv2.warpAffine(thresh, rot, (rows, cols))
+                        thresh = thresh[int(y-h/2)-5: int(y+h/2)+5, int(x-w/2)-5: int(x+w/2)+5]
                     else:
                         rot = cv2.getRotationMatrix2D((x, y), angle+90, 1)
-                        thresh1 = cv2.warpAffine(thresh1, rot, (rows, cols))
-                        thresh1 = thresh1[int(y-w/2)-5: int(y+w/2)+5, int(x-h/2)-5: int(x+h/2)+5]
+                        thresh = cv2.warpAffine(thresh, rot, (rows, cols))
+                        thresh = thresh[int(y-w/2)-5: int(y+w/2)+5, int(x-h/2)-5: int(x+h/2)+5]
+                    
+                    #divide image in half horizontally, in thirds vertically
+                    rows, cols = thresh.shape
 
+                    left_thresh = thresh[0: rows, 0: int(cols/2)]
+                    right_thresh = thresh[0: rows, int(cols/2): cols]
 
-                    rows, cols = thresh1.shape
+                    top_thresh = thresh[0: int(rows/3), 0: cols]
+                    mid_thresh = thresh[int(rows/3): int(2*rows/3), 0: cols]
+                    bot_thresh = thresh[int(2*rows/3): rows, 0: cols]
                     
-                    left_thresh = thresh1[0: rows, 0: int(cols/2)]
-                    right_thresh = thresh1[0: rows, int(cols/2): cols]
-                    
-                    top_thresh = thresh1[0: int(rows/3), 0: cols]
-                    mid_thresh = thresh1[int(rows/3): int(2*rows/3), 0: cols]
-                    bot_thresh = thresh1[int(2*rows/3): rows, 0: cols]
-                    
+                    #find and count the number of contours in each section
                     contoursL, hierarchy = cv2.findContours(left_thresh,
                         cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
                     contoursR, hierarchy = cv2.findContours(right_thresh,
                         cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-                    
+
                     contoursT, hierarchy = cv2.findContours(top_thresh,
                         cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
                     contoursM, hierarchy = cv2.findContours(mid_thresh,
                         cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
                     contoursB, hierarchy = cv2.findContours(bot_thresh,
                         cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-                    
+
                     L = []
                     R = []
                     T = []
                     M = []
                     B = []
-                    
+
                     for c in contoursL:
                         area = cv2.contourArea(c, False)
                         L.append(area)
@@ -284,6 +193,7 @@ if len(contours_1) > 0:
                         area = cv2.contourArea(c, False)
                         B.append(area)
                     
+                    #ignore contours that are too small
                     for area in L:
                         if area < max(L)/4:
                             L.remove(area)
@@ -300,7 +210,7 @@ if len(contours_1) > 0:
                         if area < max(B)/4:
                             B.remove(area)
                     
-                    
+                    #return result
                     if len(L) == 2 and len(R) == 2:
                         print('cam1 S')
                     elif len(T) == 2 and len(M) == 2 and len(B) == 1:
@@ -310,106 +220,16 @@ if len(contours_1) > 0:
                     elif len(T) == 2 and len(M) == 1 and len(B) == 2:
                         print('cam1 H')
 
+                    cv2.imshow('thresh', thresh)
 
 
-# CAMERA 2
-img2_gray = cv2.cvtColor(img2Let, cv2.COLOR_BGR2GRAY)
-ret,thresh2 = cv2.threshold(img2_gray,50,255,cv2.THRESH_BINARY_INV)
+#run color recognition
+colorRec(1, cam1_RED_LOWER_0, cam1_RED_UPPER_0, cam1_RED_LOWER_1, cam1_RED_UPPER_1, cam1_GREEN_LOWER, cam1_GREEN_UPPER, cam1_YELLOW_LOWER, cam1_YELLOW_UPPER)
+colorRec(2, cam2_RED_LOWER_0, cam2_RED_UPPER_0, cam2_RED_LOWER_1, cam2_RED_UPPER_1, cam2_GREEN_LOWER, cam2_GREEN_UPPER, cam2_YELLOW_LOWER, cam2_YELLOW_UPPER)
 
-contours_2, hierarchy = cv2.findContours(thresh2, 
-    cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+#run letter recognition
+letterRec(1)
+letterRec(2)
 
-if len(contours_2) > 0:
-    for cnt in contours_2:
-        rect = cv2.minAreaRect(cnt)
-        x, y = rect[0]
-        w, h = rect[1]
-        angle = rect[2]
-        area = w*h
-        if x-(w/2)>0 and x+(w/2)<640 and y-(h/2)>0 and y+(h/2)<480:
-            if area > 20000:
-                if 1 <= h/w <= 1.6 or 1 <= w/h <= 1.6:
-                    rows, cols = thresh2.shape
-                    if w<h:
-                        rot = cv2.getRotationMatrix2D((x, y), angle, 1)
-                        thresh2 = cv2.warpAffine(thresh2, rot, (rows, cols))
-                        thresh2 = thresh2[int(y-h/2)-5: int(y+h/2)+5, int(x-w/2)-5: int(x+w/2)+5]
-                    else:
-                        rot = cv2.getRotationMatrix2D((x, y), angle+90, 1)
-                        thresh2 = cv2.warpAffine(thresh2, rot, (rows, cols))
-                        thresh2 = thresh2[int(y-w/2)-5: int(y+w/2)+5, int(x-h/2)-5: int(x+h/2)+5]
-
-
-                    rows, cols = thresh2.shape
-                    
-                    left_thresh = thresh2[0: rows, 0: int(cols/2)]
-                    right_thresh = thresh2[0: rows, int(cols/2): cols]
-                    
-                    top_thresh = thresh2[0: int(rows/3), 0: cols]
-                    mid_thresh = thresh2[int(rows/3): int(2*rows/3), 0: cols]
-                    bot_thresh = thresh2[int(2*rows/3): rows, 0: cols]
-                    
-                    contoursL, hierarchy = cv2.findContours(left_thresh,
-                        cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-                    contoursR, hierarchy = cv2.findContours(right_thresh,
-                        cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-                    
-                    contoursT, hierarchy = cv2.findContours(top_thresh,
-                        cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-                    contoursM, hierarchy = cv2.findContours(mid_thresh,
-                        cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-                    contoursB, hierarchy = cv2.findContours(bot_thresh,
-                        cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-                    
-                    L = []
-                    R = []
-                    T = []
-                    M = []
-                    B = []
-                    
-                    for c in contoursL:
-                        area = cv2.contourArea(c, False)
-                        L.append(area)
-                    for c in contoursR:
-                        area = cv2.contourArea(c, False)
-                        R.append(area)
-                    for c in contoursT:
-                        area = cv2.contourArea(c, False)
-                        T.append(area)
-                    for c in contoursM:
-                        area = cv2.contourArea(c, False)
-                        M.append(area)
-                    for c in contoursB:
-                        area = cv2.contourArea(c, False)
-                        B.append(area)
-                    
-                    for area in L:
-                        if area < max(L)/4:
-                            L.remove(area)
-                    for area in R:
-                        if area < max(R)/4:
-                            R.remove(area)
-                    for area in T:
-                        if area < max(T)/4:
-                            T.remove(area)
-                    for area in M:
-                        if area < max(M)/4:
-                            M.remove(area)
-                    for area in B:
-                        if area < max(B)/4:
-                            B.remove(area)
-                    
-                    
-                    if len(L) == 2 and len(R) == 2:
-                        print('cam2 S')
-                    elif len(T) == 2 and len(M) == 2 and len(B) == 1:
-                        print('cam2 U')
-                    elif len(T) == 1 and len(M) == 2 and len(B) == 2:
-                        print('cam2 U')
-                    elif len(T) == 2 and len(M) == 1 and len(B) == 2:
-                        print('cam2 H')
-
-#cv2.imshow('thresh1', thresh1)
-#cv2.imshow('thresh2', thresh2)
 cv2.waitKey()
 
