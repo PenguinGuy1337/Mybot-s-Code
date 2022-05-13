@@ -77,7 +77,18 @@ for c in contours:
                 for j in range(50):
                     x, y = centerX - 25 + i, centerY - 25 + j
                     b,g,r = img[x, y]
-                
+                    #i think we need to add something here like an array of some sort.  we already have an image array from the mask
+                    
+                    #we should also crop it to only focus on the color and we could easily do this because we already centered the image
+                    #meaning we should have a general idea on where the bounds are
+                    #or maybe it's already cropped and i can't read, idk
+                    
+                    #so we just have to filter it for b==0, b=255, and r==0 or whatever--> depending on color
+                    #we would have 3 checking conditions for np.where and it search for like green = np.asarray((0,255,0))
+                    #i also think that the if statement conditions for the print should stay the same because we are searching 
+                    #for 2500 green (b,g,r) ig 
+                    #im looking at the conditions below
+                    
                     if b == 0:
                         if g == 255 and r == 0:
                             cam1_green += 1
