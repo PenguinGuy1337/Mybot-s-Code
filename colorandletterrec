@@ -94,13 +94,13 @@ def colorRec(index, redLower0, redUpper0, redLower1, redUpper1, greenLower, gree
                 red = np.array([0, 0, 255])
                 
                 #count number of colored pixels and return result
-                if np.count_nonzero((img == green).all(axis=2)) > 400:
+                if np.count_nonzero((img == green).all(axis=2)) > 800:
                     print('cam'+str(index)+' green')
                 
-                if np.count_nonzero((img == yellow).all(axis=2)) > 400:
+                if np.count_nonzero((img == yellow).all(axis=2)) > 800:
                     print('cam'+str(index)+' yellow')
             
-                if np.count_nonzero((img == red).all(axis=2)) > 400:
+                if np.count_nonzero((img == red).all(axis=2)) > 800:
                     print('cam'+str(index)+' red')
                 
 
