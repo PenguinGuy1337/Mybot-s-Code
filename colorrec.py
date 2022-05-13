@@ -8,6 +8,7 @@ import RPi.GPIO as GPIO
 import serial
 import numpy as np
 
+start_time = time.time()
 
 #start cameras
 cam1 = cv2.VideoCapture(0)
@@ -47,7 +48,7 @@ def colorRec(index, redLower0, redUpper0, redLower1, redUpper1, greenLower, gree
         v, img = cam2.read()
     
     #convert to hsv
-    img_hsv = cv2.cvtColor(img, cv2.COLOR_BRG2HSV)
+    img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     
     #set pixel colors into red, green, yellow, and white
     red_mask1 = cv2.inRange(img_hsv, redLower0, redUpper0)
@@ -85,7 +86,7 @@ def colorRec(index, redLower0, redUpper0, redLower1, redUpper1, greenLower, gree
                 centerX = int(M['m10']/M['m00'])
                 centerY = int(M['m01']/M['m00'])
                 
-                img = img[centerY-25:centerY+25, centerX-25:centerX+25]
+                img = img[centerY-15:centerY+15, centerX-15:centerX+15]
                 
                 #colors
                 green = np.array([0, 255, 0])
@@ -93,18 +94,15 @@ def colorRec(index, redLower0, redUpper0, redLower1, redUpper1, greenLower, gree
                 red = np.array([0, 0, 255])
                 
                 #count number of colored pixels and return result
-                if np.count_nonzero(green) > 2000:
+                if np.count_nonzero((img == green).all(axis=2)) > 400:
                     print('cam'+str(index)+' green')
-                if np.count_nonzero(yellow) > 2000:
+                
+                if np.count_nonzero((img == yellow).all(axis=2)) > 400:
                     print('cam'+str(index)+' yellow')
-                if np.count_nonzero(red) > 2000:
+            
+                if np.count_nonzero((img == red).all(axis=2)) > 400:
                     print('cam'+str(index)+' red')
                 
-                print(cam1_green)
-                print(cam1_yellow)
-                print(cam1_red)
-                
-                cv2.imshow('img', img)
 
 
 #letters
@@ -120,33 +118,35 @@ def letterRec(index):
     BLACK_UPPER = 50
     
     #convert to grayscale and threshold darkest pixels
+    blur = cv2.blur(img,(7,7))
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     ret, thresh = cv2.threshold(gray,50,255,cv2.THRESH_BINARY_INV)
     
     #find contours
     contours, hierarchy = cv2.findContours(thresh, 
         cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-    
+
     #contours must be fully in the image, meet area requirements, and have a certain height:width ratio
     for c in contours:
-        rect = cv2.minAreaRect(c)
-        x, y = rect[0]
-        w, h = rect[1]
-        angle = rect[2]
-        area = w*h
-        if x-(w/2)>0 and x+(w/2)<640 and y-(h/2)>0 and y+(h/2)<480:
+        x, y, w1, h1 = cv2.boundingRect(c)
+        if x>0 and x+w1<640 and y>0 and y+h1<480:
+            area = w1*h1
             if area > 20000:
+                rect = cv2.minAreaRect(c)
+                cx, cy = rect[0]
+                w, h = rect[1]
+                angle = rect[2]
+                area = w*h
                 if 1 <= h/w <= 1.6 or 1 <= w/h <= 1.6:
-                    rows, cols = thresh.shape
                     #rotate image so letter is upright
                     if w<h:
-                        rot = cv2.getRotationMatrix2D((x, y), angle, 1)
-                        thresh = cv2.warpAffine(thresh, rot, (rows, cols))
-                        thresh = thresh[int(y-h/2)-5: int(y+h/2)+5, int(x-w/2)-5: int(x+w/2)+5]
+                        rot = cv2.getRotationMatrix2D((cx, cy), angle, 1)
+                        thresh = cv2.warpAffine(thresh, rot, (640, 480))
+                        thresh = thresh[int(cy-h/2)-5: int(cy+h/2)+5, int(cx-w/2)-5: int(cx+w/2)+5]
                     else:
-                        rot = cv2.getRotationMatrix2D((x, y), angle+90, 1)
-                        thresh = cv2.warpAffine(thresh, rot, (rows, cols))
-                        thresh = thresh[int(y-w/2)-5: int(y+w/2)+5, int(x-h/2)-5: int(x+h/2)+5]
+                        rot = cv2.getRotationMatrix2D((cx, cy), angle+90, 1)
+                        thresh = cv2.warpAffine(thresh, rot, (640, 480))
+                        thresh = thresh[int(cy-w/2)-5: int(cy+w/2)+5, int(cx-h/2)-5: int(cx+h/2)+5]
                     
                     #divide image in half horizontally, in thirds vertically
                     rows, cols = thresh.shape
@@ -194,33 +194,26 @@ def letterRec(index):
                         B.append(area)
                     
                     #ignore contours that are too small
-                    for area in L:
-                        if area < max(L)/4:
-                            L.remove(area)
-                    for area in R:
-                        if area < max(R)/4:
-                            R.remove(area)
-                    for area in T:
-                        if area < max(T)/4:
-                            T.remove(area)
-                    for area in M:
-                        if area < max(M)/4:
-                            M.remove(area)
-                    for area in B:
-                        if area < max(B)/4:
-                            B.remove(area)
+                    while min(L) < max(L)/4:
+                        L.remove(min(L))
+                    while min(R) < max(R)/4:
+                        R.remove(min(R))
+                    while min(T) < max(T)/4:
+                        T.remove(min(T))
+                    while min(M) < max(M)/4:
+                        M.remove(min(M))
+                    while min(B) < max(B)/4:
+                        B.remove(min(B))
                     
                     #return result
                     if len(L) == 2 and len(R) == 2:
-                        print('cam1 S')
+                        print('cam'+str(index)+' S')
                     elif len(T) == 2 and len(M) == 2 and len(B) == 1:
-                        print('cam1 U')
+                        print('cam'+str(index)+' U')
                     elif len(T) == 1 and len(M) == 2 and len(B) == 2:
-                        print('cam1 U')
+                        print('cam'+str(index)+' U')
                     elif len(T) == 2 and len(M) == 1 and len(B) == 2:
-                        print('cam1 H')
-
-                    cv2.imshow('thresh', thresh)
+                        print('cam'+str(index)+' H')
 
 
 #run color recognition
@@ -231,5 +224,4 @@ colorRec(2, cam2_RED_LOWER_0, cam2_RED_UPPER_0, cam2_RED_LOWER_1, cam2_RED_UPPER
 letterRec(1)
 letterRec(2)
 
-cv2.waitKey()
-
+print("--- %s seconds ---" % (time.time() - start_time))
