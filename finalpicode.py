@@ -226,11 +226,17 @@ if __name__ == '__main__':
     except:
         GPIO.output(4, GPIO.HIGH)
         time.sleep(60)
+    finally:
+        serial.write("start\n".encode("utf-8"))
+
     t1 = threading.Thread(target=camWrapper, args=(1, cam1_RED_LOWER_0, cam1_RED_UPPER_0, cam1_RED_LOWER_1, cam1_RED_UPPER_1, cam1_GREEN_LOWER, cam1_GREEN_UPPER, cam1_YELLOW_LOWER, cam1_YELLOW_UPPER), name="1")
     t2 = threading.Thread(target=camWrapper, args=(2, cam2_RED_LOWER_0, cam2_RED_UPPER_0, cam2_RED_LOWER_1, cam2_RED_UPPER_1, cam2_GREEN_LOWER, cam2_GREEN_UPPER, cam2_YELLOW_LOWER, cam2_YELLOW_UPPER), name="1")
 
     t1.start()
     t2.start()
+    
+    while True: #make the main thread sleep
+        time.sleep(60)
 
 cam1.release()
 cam2.release()
