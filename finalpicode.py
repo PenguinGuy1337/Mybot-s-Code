@@ -90,11 +90,11 @@ def colorRec(index, redLower0, redUpper0, redLower1, redUpper1, greenLower, gree
                 red = np.array([0, 0, 255])
 
                 #count number of colored pixels and return result
-                if np.count_nonzero((img == green).all(axis=2)) > 800:
+                if np.count_nonzero((img == green).all(axis=2)) > 700:
                     callInterrupt(threading.currentThread().getName() + "g\n")
-                elif np.count_nonzero((img == yellow).all(axis=2)) > 800:
+                elif np.count_nonzero((img == yellow).all(axis=2)) > 700:
                     callInterrupt(threading.currentThread().getName() + "y\n")
-                elif np.count_nonzero((img == red).all(axis=2)) > 800:
+                elif np.count_nonzero((img == red).all(axis=2)) > 700:
                     callInterrupt(threading.currentThread().getName() + "r\n")
 
 #letters
