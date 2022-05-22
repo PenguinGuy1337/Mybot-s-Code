@@ -7,10 +7,10 @@
 
 
 #define stepsPerTile 1874          // set this as however many steps for exactly 30 cm rotation
-#define TURNCONSTANT 1026          // this is the amount of steps for the robot to turn 90 deg
-#define LUXTHRESHOLD 30            // threshold for the lux sensor to detect difference between black and not balck holes
-#define SOLENOID_RELAY_PIN 53      // pin for the soledoid relay
-#define VICTIM_LED 52              // pin for the victim led output
+#define TURNCONSTANT 1023          // this is the amount of steps for the robot to turn 90 deg
+#define LUXTHRESHOLD 0            // threshold for the lux sensor to detect difference between black and not balck holes
+#define SOLENOID_RELAY_PIN 52      // pin for the soledoid relay
+#define VICTIM_LED 53              // pin for the victim led output
 #define OBSTACLE_PIN 14            // pin that will be pulled high by obstacle bump pin
 #define WALL_DISTANCE_THRESHOLD 150 // this is in millimeters
 
@@ -98,6 +98,7 @@ struct Tile
 
 void blinkIndicator() //blink all leds to signal victim
 {
+  //Serial.println("Blinking indicators!!");
   for (uint8_t i = 0; i < 5; i++)
   {
     digitalWrite(VICTIM_LED, HIGH);
@@ -119,10 +120,62 @@ void dispenseN(uint8_t n)  //dispense medkits
 {
   for (uint8_t i = 0; i < n; i++)
   {
+    //Serial.println("dispensing...");
     digitalWrite(SOLENOID_RELAY_PIN, HIGH);
     delay(1000);
     digitalWrite(SOLENOID_RELAY_PIN, LOW);
     delay(1000);
+  }
+}
+void turnLeft()
+{
+  //Serial.println("turning left");
+  switch (orientation) //adjust orientation 
+  {
+  case UP:
+    orientation = LEFT;
+    break;
+  case RIGHT:
+    orientation = UP;
+    break;
+  case DOWN:
+    orientation = RIGHT;
+    break;
+  case LEFT:
+    orientation = DOWN;
+    break;
+  }
+
+  for (uint16_t i = 0; i < TURNCONSTANT; i++)
+  {
+    leftStep(false);
+    rightStep(true);
+  }
+}
+
+void turnRight()
+{
+  //Serial.println("turning right");
+  switch (orientation)
+  {
+  case UP:
+    orientation = RIGHT;
+    break;
+  case RIGHT:
+    orientation = DOWN;
+    break;
+  case DOWN:
+    orientation = LEFT;
+    break;
+  case LEFT:
+    orientation = UP;
+    break;
+  }
+
+  for (uint16_t i = 0; i < TURNCONSTANT; i++)
+  {
+    leftStep(true);
+    rightStep(false);
   }
 }
 
@@ -131,18 +184,22 @@ void dispenseN(uint8_t n)  //dispense medkits
 */
 void victimDetect() 
 {
-  if (Serial.available() > 0) //check if serial buffer contains data
+  if (Serial.available() == 3 && (Serial.peek() == '1' || Serial.peek() == '2')) //check if serial buffer contains data
   {
     String data = Serial.readStringUntil('\n');
+    //Serial.print("reading a : ");
+    //Serial.println(data);
 
     //in the case that the pi detects a victim too far away, check the sides to make sure robot is adjacent to victim
-    TCA(1);
-    bool rightBlocked = (data[0] == '1' && tofRight.readRangeStatus() == VL6180X_ERROR_NONE && tofRight.readRange() < WALL_DISTANCE_THRESHOLD) ? true : false;
     TCA(3);
-    bool leftBlocked = (data[0] == '2' && tofLeft.readRangeStatus() == VL6180X_ERROR_NONE && tofLeft.readRange() < WALL_DISTANCE_THRESHOLD) ? true : false;
+    bool rightBlocked = (data[0] == '1' && tofLeft.readRange() < WALL_DISTANCE_THRESHOLD) ? true : false;
+    TCA(1);
+    bool leftBlocked = (data[0] == '2' && tofRight.readRange() < WALL_DISTANCE_THRESHOLD) ? true : false;
 
     if (rightBlocked || leftBlocked)
     {
+      turnRight();
+      turnRight();
       blinkIndicator();
       if (data[1] == 'h') //hurt 
       {
@@ -168,6 +225,8 @@ void victimDetect()
       {
         // dispense nothing
       }
+      turnLeft();
+      turnLeft();
     }
   }
 }
@@ -191,7 +250,7 @@ private:
 
   bool moveforward()
   { 
-    Serial.println("moving forward");
+    //Serial.println("moving forward");
     sensors_event_t event;
     uint32_t i = 0;
     while (i < stepsPerTile)
@@ -205,6 +264,7 @@ private:
         luxSensor.getEvent(&event);
         if (event.light < LUXTHRESHOLD || digitalRead(OBSTACLE_PIN) == HIGH) 
         {
+          //Serial.println("forward movemen failed");
           while (i >= 0) //reverse robot away from tile and return false to indicate that movement failed
           {
             rightStep(false);
@@ -212,77 +272,23 @@ private:
             delay(10);
             i--;
           }
-          Serial.println("forward movemen failed");
           return false; 
         }
       }
       // check for temperature every 320 steps
+      /*
       if (i % 320 == 0 && ((readRightC() - AMBIENT_TEMP) > 10 || (readLeftC() - AMBIENT_TEMP) > 10))
       {
         blinkIndicator();
         dispenseN(1);
-      }
+      }*/
 
       victimDetect();
-
       i++;
     }
-    Serial.println("forward movement complete");
+    //Serial.println("forward movement complete");
     return true;
   }
-
-  void turnLeft()
-  {
-    Serial.println("turning left");
-    switch (orientation) //adjust orientation 
-    {
-    case UP:
-      orientation = LEFT;
-      break;
-    case RIGHT:
-      orientation = UP;
-      break;
-    case DOWN:
-      orientation = RIGHT;
-      break;
-    case LEFT:
-      orientation = DOWN;
-      break;
-    }
-
-    for (uint16_t i = 0; i < TURNCONSTANT; i++)
-    {
-      leftStep(false);
-      rightStep(true);
-    }
-  }
-
-  void turnRight()
-  {
-    Serial.println("turning right");
-    switch (orientation)
-    {
-    case UP:
-      orientation = RIGHT;
-      break;
-    case RIGHT:
-      orientation = DOWN;
-      break;
-    case DOWN:
-      orientation = LEFT;
-      break;
-    case LEFT:
-      orientation = UP;
-      break;
-    }
-
-    for (uint16_t i = 0; i < TURNCONSTANT; i++)
-    {
-      leftStep(true);
-      rightStep(false);
-    }
-  }
-
 public:
   /*
   * because the algorithm checks cardinal directions on the maze and the robot is not always facing up, we need switches to adjust our orientation to make sure the robot is calling the correct sensors
@@ -294,28 +300,25 @@ public:
     case UP:
       TCA(2);
       if (tofFront.readRange() < WALL_DISTANCE_THRESHOLD){
-        Serial.print("up is blocked");
         return false;}
       break;
     case RIGHT:
       TCA(3);
       if (tofLeft.readRange() < WALL_DISTANCE_THRESHOLD) {
-        Serial.print("up is blocked");
         return false;}
       break;
     case DOWN:
       TCA(4);
       if (tofBack.readRange() < WALL_DISTANCE_THRESHOLD) {
-        Serial.print("up is blocked");      
         return false;}
       break;
     case LEFT:
       TCA(1);
       if (tofRight.readRange() < WALL_DISTANCE_THRESHOLD) {
-        Serial.print("up is blocked");
         return false;}
       break;
     }
+    //Serial.println("up is open");
     return true;
   }
 
@@ -326,29 +329,26 @@ public:
     case UP:
       TCA(1);
       if (tofRight.readRange() < WALL_DISTANCE_THRESHOLD) {
-        Serial.print("Right is blocked");
         return false;}
-
       break;
     case RIGHT:
       TCA(2);
       if ( tofFront.readRange() < WALL_DISTANCE_THRESHOLD) {
-        Serial.print("Right is blocked");
         return false;}
       break;
     case DOWN:
       TCA(3);
       if ( tofLeft.readRange() < WALL_DISTANCE_THRESHOLD) {
-        Serial.print("Right is blocked");
         return false;}
       break;
     case LEFT:
       TCA(4);
       if ( tofBack.readRange() < WALL_DISTANCE_THRESHOLD) {
-        Serial.print("Right is blocked");
         return false;}
       break;
     }
+
+    //Serial.println("right is open");
     return true;
   }
 
@@ -359,29 +359,25 @@ public:
     case UP:
       TCA(4);
       if ( tofBack.readRange() < WALL_DISTANCE_THRESHOLD) {
-        Serial.println("down is blocked");
         return false;}
       break;
     case RIGHT:
       TCA(1);
       if ( tofRight.readRange() < WALL_DISTANCE_THRESHOLD) {
-        Serial.print("down is blocked");
         return false;}
       break;
     case DOWN:
       TCA(2);
       if ( tofFront.readRange() < WALL_DISTANCE_THRESHOLD) {
-        Serial.println("down is blocked");
         return false;}
       break;
     case LEFT:
       TCA(3);
       if ( tofLeft.readRange() < WALL_DISTANCE_THRESHOLD) {
-        Serial.println("down is blocked");        
         return false;}
       break;
     }
-
+    //Serial.println("down is open");
     return true;
   }
 
@@ -392,28 +388,25 @@ public:
     case UP:
       TCA(3);
       if ( tofLeft.readRange() < WALL_DISTANCE_THRESHOLD) {
-        Serial.println("left is blocked");
         return false;}
       break;
     case RIGHT:
       TCA(4);
       if ( tofBack.readRange() < WALL_DISTANCE_THRESHOLD) {
-        Serial.println("left is blocked");
         return false;}
       break;
     case DOWN:
       TCA(1);
       if ( tofRight.readRange() < WALL_DISTANCE_THRESHOLD) {
-        Serial.println("left is blocked");        
         return false;}
       break;
     case LEFT:
       TCA(2);
       if ( tofFront.readRange() < WALL_DISTANCE_THRESHOLD) {
-        Serial.println("left is blocked");
         return false;}
       break;
     }
+    //Serial.println("left is open");
     return true;
   }
 
@@ -501,7 +494,6 @@ public:
           return false;
         break;
       case LEFT:
-        turnLeft();
         if (!moveforward())
           return false;
         break;
@@ -542,10 +534,11 @@ public:
 //over time error in movement will build up, this will adjust the robot's position to center it on a tile
 void calibrate()
 {
+  //Serial.println("Calibrating distance from wall...");
   TCA(2);
-  if (tofFront.readRangeStatus() == VL6180X_ERROR_NONE && tofFront.readRange() < 80)
+  if (tofFront.readRangeStatus() == VL6180X_ERROR_NONE && tofFront.readRange() < 100)
   {
-    while (tofFront.readRangeStatus() == VL6180X_ERROR_NONE && tofFront.readRange() > 45)
+    while (tofFront.readRangeStatus() == VL6180X_ERROR_NONE && tofFront.readRange() > 50)
     {
       rightStep(true);
       leftStep(true);
@@ -612,34 +605,34 @@ public:
     if (bot.checkRight() && map[bot.getY()][bot.getX() + 1].state == false)
     {
       nextMove.push_back(RIGHT);
-      Serial.println("Wants to move Right");
+      //Serial.println("Wants to move Right");
     }
     if (bot.checkUp() && map[bot.getY() - 1][bot.getX()].state == false)
     {
       nextMove.push_back(UP);
-      Serial.println("wants to move up");
+      //Serial.println("wants to move up");
     }
-    if (bot.checkLeft() && map[bot.getY()][bot.getX()].state == false)
+    if (bot.checkLeft() && map[bot.getY()][bot.getX() - 1].state == false)
     {
       nextMove.push_back(LEFT);
-      Serial.println("wants to move left");
+      //Serial.println("wants to move left");
     }
     if (bot.checkDown() && (map[bot.getY() + 1][bot.getX()].state == false))
     {
       nextMove.push_back(DOWN);
-      Serial.println("wants to move down");
+      //Serial.println("wants to move down");
     }
 
     if (nextMove.size() == 0)
     {
       backtrack();
-      Serial.println("backtracking...");
+      //Serial.println("backtracking...");
     }
     else if (nextMove.size() == 1)
     {
       history.push_back(nextMove[0]);
-      Serial.print("moving: ");
-      Serial.println(nextMove[0]);
+      //Serial.print("moving: ");
+      //Serial.println(nextMove[0]);
       if (!bot.travel(nextMove[0]))
       {
         history.pop_back();
@@ -661,8 +654,8 @@ public:
     }
     else
     { 
-      Serial.print("moving :");
-      Serial.println(nextMove[0]);
+      //Serial.print("moving :");
+      //Serial.println(nextMove[0]);
       history.push_back(nextMove[0]);
       map[bot.getY()][bot.getX()].decision = true;
       if (!bot.travel(nextMove[0]))
@@ -684,10 +677,9 @@ public:
         }
       }
     }
-    //calibrate();
+    calibrate();
 
     nextMove.clear();
-
   }
 };
 
@@ -708,9 +700,6 @@ void setup()
   pinMode(OBSTACLE_PIN, INPUT);
 
   Serial.begin(9600);
-
-  /*
-  Serial.begin(9600);
   while (!Serial)
   {
     delay(1);
@@ -723,7 +712,8 @@ void setup()
   }
   //clear the string buffer
   Serial.readStringUntil('\n');
-  */
+
+
   Wire.begin();
 
   TCA(1);
@@ -757,17 +747,7 @@ void setup()
     while (true)
       delay(1);
   }
-  
-  /*
-  if (!mpu.begin())
-  {
-    digitalWrite(ERROR_LED_1,HIGH);
-    digitalWrite(ERROR_LED_3,HIGH);
-    while(true) delay(1);
-  }
 
-  mpu.setGyroRange(MPU6050_RANGE_2000_DEG);
-*/
   orientation = UP;
 
 
@@ -799,7 +779,7 @@ void setup()
 
   TCA(6);
   AMBIENT_TEMP = tempRight.readAmbientTempC();
-  Serial.println("done with setup");
+  //Serial.println("done with setup");
 
   delay(10000);
 }
@@ -807,7 +787,7 @@ void setup()
 Map theMap;
 void loop()
 {
-  Serial.println("moving\n\n");
+  //Serial.println("moving\n\n");
   theMap.move();
   delay(1000);
 }
