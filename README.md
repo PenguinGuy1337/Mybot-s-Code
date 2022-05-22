@@ -1,2 +1,2 @@
 # Robocup-Code
-this is a current work in progress
+This is the code used for team BSR in the 2022 Robocup Rescue.
